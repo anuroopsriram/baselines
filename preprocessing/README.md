@@ -22,7 +22,7 @@ ASE atoms object -> Pymatgen structure object -> structure.get_all_neighbors() -
 
 ## Code
 
-Feel free to add testing notebooks or scripts to this branch and we will determine how to integrate with the master branch later
+There is an example notebook called test_convert and a toy dataset in the data folder to experiment with. Please feel free to add testing notebooks or scripts to this folder (preprocessing) and we will determine how to merge with the master branch later.
 
 ## Dependencies for preprocessing:
 
