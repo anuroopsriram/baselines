@@ -27,55 +27,46 @@ except NameError:
     from tqdm import tqdm
 
 
-class AtomsToGraphs:
-    def __init__(self, ase_db_path, processed_file_path):
-        self.ase_db_path = ase_db_path
-        self.ase_db = ase.db.connect(self.ase_db_path)
-        self.processed_file_path = processed_file_path
+def convert_atoms_to_graphs(ase_db_path, processed_file_path):
+    ase_db = ase.db.connect(ase_db_path)
+    print("### Preprocessing atoms objects from:  {}".format(ase_db_path))
+    feature_generator = AtomicFeatureGenerator(ase_db)
+    # The atoms objects have energy instead of adsorption_energy
+    # can decided on this later
+    # energies = [row.adsorption_energy for row in self.ase_db.select()]
+    energies = [row.energy for row in ase_db.select()]
 
-    def convert(self):
-        print(
-            "### Preprocessing atoms objects from:  {}".format(
-                self.ase_db_path
+    data_list = []
+    zipped_data = zip(feature_generator, energies)
+    for (embedding, distance, index), energy in tqdm(
+        zipped_data,
+        desc="preprocessing atomic features",
+        total=len(energies),
+        unit="structure",
+    ):
+
+        edge_index = [[], []]
+        edge_attr = torch.FloatTensor(
+            index.shape[0] * index.shape[1], distance.shape[-1]
+        )
+        for j in range(index.shape[0]):
+            for k in range(index.shape[1]):
+                edge_index[0].append(j)
+                edge_index[1].append(index[j, k])
+                edge_attr[j * index.shape[1] + k] = distance[j, k].clone()
+        edge_index = torch.LongTensor(edge_index)
+        data_list.append(
+            Data(
+                x=embedding,
+                edge_index=edge_index,
+                edge_attr=edge_attr,
+                y=energy,
+                pos=None,
             )
         )
-        feature_generator = AtomicFeatureGenerator(self.ase_db)
-        # The atoms objects have energy instead of adsorption_energy
-        # can decided on this later
-        # energies = [row.adsorption_energy for row in self.ase_db.select()]
-        energies = [row.energy for row in self.ase_db.select()]
 
-        data_list = []
-        zipped_data = zip(feature_generator, energies)
-        for (embedding, distance, index), energy in tqdm(
-            zipped_data,
-            desc="preprocessing atomic features",
-            total=len(energies),
-            unit="structure",
-        ):
-
-            edge_index = [[], []]
-            edge_attr = torch.FloatTensor(
-                index.shape[0] * index.shape[1], distance.shape[-1]
-            )
-            for j in range(index.shape[0]):
-                for k in range(index.shape[1]):
-                    edge_index[0].append(j)
-                    edge_index[1].append(index[j, k])
-                    edge_attr[j * index.shape[1] + k] = distance[j, k].clone()
-            edge_index = torch.LongTensor(edge_index)
-            data_list.append(
-                Data(
-                    x=embedding,
-                    edge_index=edge_index,
-                    edge_attr=edge_attr,
-                    y=energy,
-                    pos=None,
-                )
-            )
-
-        self.data, self.slices = collate(data_list)
-        torch.save((self.data, self.slices), self.processed_file_path)
+    data, slices = collate(data_list)
+    torch.save((data, slices), processed_file_path)
 
 
 class AtomicFeatureGenerator:
