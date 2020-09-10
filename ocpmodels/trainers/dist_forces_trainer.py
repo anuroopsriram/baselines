@@ -12,7 +12,16 @@ from ocpmodels.common import distutils
 from ocpmodels.common.ase_utils import relax_eval
 from ocpmodels.common.data_parallel import OCPDataParallel, ParallelCollater
 from ocpmodels.common.registry import registry
-from ocpmodels.common.utils import plot_histogram, save_checkpoint
+from ocpmodels.common.utils import (
+    plot_histogram,
+    save_checkpoint,
+    save_checkpoint_train
+)
+from ocpmodels.datasets import (
+    TrajectoryDataset,
+    TrajectoryLmdbDataset,
+    data_list_collater,
+)
 from ocpmodels.modules.evaluator import Evaluator
 from ocpmodels.modules.normalizer import Normalizer
 from ocpmodels.trainers.base_trainer import BaseTrainer
@@ -310,11 +319,29 @@ class DistributedForcesTrainer(BaseTrainer):
                         step=epoch * len(self.train_loader) + i + 1,
                         split="train",
                     )
+                if not self.is_debug and distutils.is_master():
+                    if eval_every < -1 and iters % (-1*eval_every) == 0:
+                        save_checkpoint_train(
+                                {
+                                    "epoch": epoch
+                                    + (i + 1) / len(self.train_loader),
+                                    "state_dict": self.model.state_dict(),
+                                    "optimizer": self.optimizer.state_dict(),
+                                    "normalizers": {
+                                        key: value.state_dict()
+                                        for key, value in self.normalizers.items()
+                                    },
+                                    "config": self.config,
+                                    "val_metrics": self.metrics,
+                                },
+                                self.config["cmd"]["checkpoint_dir"],
+                            )
+
 
                 iters += 1
 
                 # Evaluate on val set every `eval_every` iterations.
-                if eval_every != -1 and iters % eval_every == 0:
+                if eval_every > -1 and iters % eval_every == 0:
                     if self.val_loader is not None:
                         val_metrics = self.validate(split="val", epoch=epoch)
                         if (
