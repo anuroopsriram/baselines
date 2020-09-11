@@ -1,8 +1,10 @@
+import pickle
 import numpy as np
 import os
 
 import ase.io
 import torch.nn
+from ase.optimize import LBFGS
 from ocpmodels.common.ase_utils import OCPCalculator, Relaxation, relax_eval
 from ocpmodels.common.dft_eval import DFTeval
 from ocpmodels.trainers import ForcesTrainer
@@ -11,31 +13,46 @@ from tqdm import tqdm
 
 
 def relax(model, results_path, fmax=0.01):
-    # k = open("/private/home/mshuaibi/ocp-modeling/utils/val_sample.txt", "r")
-    k = open("/checkpoint/mshuaibi/ocpdata_reset_07_13_20/eval_server_test.txt","r")
+    """
+    model: OCP trainer
+    results_path: Path to save relaxations
+    fmax: Convergence criteria for relaxations
+    """
+    # k = open("/checkpoint/mshuaibi/ocpdata_reset_07_13_20/eval_server_test.txt","r")
+    k = open("/private/home/mshuaibi/baselines/expts/init_to_relaxed_1k.txt", "r")
     traj_paths = k.read().splitlines()
     ocp_calc = OCPCalculator(model)
-    import time
-    times = []
-    for path in tqdm(traj_paths[10:30]):
-        t=time.time()
+    j = open(
+        "/checkpoint/electrocatalysis/relaxations/mapping/pickled_mapping/adslab_ref_energies_full.pkl", "rb"
+    )
+    ref = pickle.load(j)
+    maes = []
+    for path in tqdm(traj_paths[:10]):
         randomid = os.path.basename(path)
-        os.makedirs(os.path.join("relaxations", f"{results_path}/ml_results_debug/{randomid[:-5]}"), exist_ok=True)
-        images = ase.io.Trajectory(path)
-        starting_idx = 0
-        init_structure = images[starting_idx].copy()
-        optimizer = Relaxation(init_structure,
-            f"relaxations/{results_path}/ml_results_debug/{randomid[:-5]}/ml_idx_{randomid}"
+        os.makedirs(os.path.join(
+                "relaxations", f"{results_path}/ml_results_debug_lbfgs/{randomid[:-5]}"
+            ), exist_ok=True
         )
-        # optimizer.run(ocp_calc, steps=len(images)+100, fmax=fmax)
+        images = ase.io.Trajectory(path)
+        init_structure = images[0].copy()
+        optimizer = Relaxation(
+            structure=init_structure,
+            filename=f"relaxations/{results_path}/ml_results_debug_lbfgs/{randomid[:-5]}/ml_{randomid}",
+            optimizer=LBFGS,
+        )
         optimizer.run(ocp_calc, steps=300, fmax=fmax)
-        times.append(time.time()-t)
-    print(np.mean(times))
+        ml_traj = optimizer.get_trajectory(full=True)
+        dft_energy = images[-1].get_potential_energy()
+        ml_energy = ml_traj[-1].get_potential_energy() + ref[randomid[:-5]]
+        mae = np.abs(dft_energy - ml_energy)
+        maes.append(mae)
+    print(maes)
+    import pdb; pdb.set_trace()
 
 def dfteval(relaxation_dir):
     evaluator = DFTeval(relaxation_dir)
     evaluator.write_input_files()
-    # evaluator.queue_jobs()
+    evaluator.queue_jobs()
 
 def load_model(model_path):
     dataset = {
@@ -95,15 +112,15 @@ def load_model(model_path):
     return trainer
 
 if __name__ == "__main__":
-    checkpoint_path = "/private/home/mshuaibi/baselines/expts/ocp_expts/ocp20M_08_16/checkpoints/2020-08-16-21-53-06-ocp20Mv6_schnet_lr0.0001_ch1024_fltr256_gauss200_layrs3_pbc"
-    # checkpoint_path = "/private/home/mshuaibi/baselines/expts/ocp_expts/ocp20M_2020-08-16-21-53-07-ocp20Mv6_schnet_lr0.0001_ch512_fltr256_gauss200_layrs3"
+    checkpoint_path = "/private/home/mshuaibi/baselines/expts/ocp_expts/pre_final/ocp20M_08_16/checkpoints/2020-08-16-21-53-06-ocp20Mv6_schnet_lr0.0001_ch1024_fltr256_gauss200_layrs3_pbc"
 
     results_path = os.path.basename(checkpoint_path)
     model = load_model(os.path.join(checkpoint_path, "checkpoint.pt"))
 
-    relax(model=model,
-          results_path=results_path,
-          fmax=0,
+    relax(
+        model=model,
+        results_path=results_path,
+        fmax=0,
     )
     # path = f"relaxations/{results_path}_test/ml_results/"
     # for i in tqdm(os.listdir(path)):
