@@ -24,6 +24,8 @@ jobs:
               $HOME/miniconda/bin/conda env create -f env.yml
             else
               source ~/.bashrc
+              $HOME/miniconda/bin/conda install -c conda-forge conda-merge
+              $HOME/miniconda/bin/conda merge env.common.yml env.cpu.yml > env.yml
               $HOME/miniconda/bin/conda env update -f env.yml --prune
             fi
       - save_cache:
