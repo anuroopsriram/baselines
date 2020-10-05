@@ -17,7 +17,7 @@ jobs:
       - run:
           name: Activate
           command: |
-            CONDA_BASE=$(conda info --base)
+            CONDA_BASE=$($HOME/miniconda/bin/conda info --base)
             source $CONDA_PREFIX/etc/profile.d/conda.sh
             $HOME/miniconda/bin/conda activate base
       - run:
