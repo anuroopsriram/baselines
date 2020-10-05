@@ -19,11 +19,11 @@ jobs:
           command: |
             $HOME/miniconda/bin/conda install -c conda-forge conda-merge
             $HOME/miniconda/bin/conda merge env.common.yml env.cpu.yml > env.yml
-            conda env create -f env.yml
+            $HOME/miniconda/bin/conda env create -f env.yml
       - run:
           name: Install
           command: |
-            conda activate ocp-models
+            $HOME/miniconda/bin/conda activate ocp-models
             pip install -e .
       - run:
           name: Test
