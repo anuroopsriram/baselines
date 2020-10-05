@@ -5,12 +5,7 @@ orbs:
 
 jobs:
   build-and-test:
-    executor: << parameters.executor >>
-    parameters:
-      executor:
-        default: miniconda3
-        description: conda executor
-        type: executor
+    executor: python/default
 
     steps:
       - checkout
