@@ -5,7 +5,8 @@ orbs:
 
 jobs:
   build-and-test:
-    executor: python/default
+    executor: miniconda3
+
     steps:
       - checkout
       - run:
