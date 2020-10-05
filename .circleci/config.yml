@@ -35,13 +35,13 @@ jobs:
       - run:
           name: Install
           command: |
-            $HOME/miniconda/bin/conda init --all
-            $HOME/miniconda/bin/conda activate ocp-models
-            pip install -e .
+            #$HOME/miniconda/bin/conda init --all
+            #$HOME/miniconda/bin/conda activate ocp-models
+            $HOME/miniconda/envs/ocp-models/bin/pip install -e .
       - run:
           name: Test
           command: |
-            pytest
+            $HOME/miniconda/envs/ocp-models/bin/pytest
 
 workflows:
   main:
