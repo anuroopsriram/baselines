@@ -26,7 +26,7 @@ jobs:
             fi
       - save_cache:
           paths:
-            - $HOME/miniconda
+            - /home/circleci/miniconda
           key: dependencies
       - run:
           name: Install
