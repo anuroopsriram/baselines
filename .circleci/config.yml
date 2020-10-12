@@ -53,5 +53,5 @@ jobs:
             source /home/circleci/miniconda/etc/profile.d/conda.sh
             conda activate ocp-models
             pip install black
-            black electrocatalysis/. --diff
-            black electrocatalysis/. --check
+            black . --diff
+            black . --check
