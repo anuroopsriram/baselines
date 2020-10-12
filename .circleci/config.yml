@@ -5,43 +5,55 @@ orbs:
 
 jobs:
   build-and-test:
-    executor: python/default
-
     steps:
       - checkout
+
       - restore_cache:
           keys:
-            - deps
+          - v0-dependencies-{{ checksum "env.common.yml" }}-{{ checksum "env.cpu.yml" }}-{{ checksum "env.gpu.yml" }}
+
       - run:
-          name: Setup Miniconda
+          name: Install conda
           command: |
-            if [ ! -d "$HOME/miniconda" ]; then
-              wget "https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh" -O miniconda.sh
-              bash miniconda.sh -b -p $HOME/miniconda
-              source ~/.bashrc
-              $HOME/miniconda/bin/conda install -c conda-forge conda-merge
-              $HOME/miniconda/bin/conda merge env.common.yml env.cpu.yml > env.yml
-              $HOME/miniconda/bin/conda env create -f env.yml
-            else
-              source ~/.bashrc
-              $HOME/miniconda/bin/conda install -c conda-forge conda-merge
-              $HOME/miniconda/bin/conda merge env.common.yml env.cpu.yml > env.yml
-              $HOME/miniconda/bin/conda env update -f env.yml --prune
-            fi
+             wget https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh
+             bash miniconda.sh -b -p "$HOME"/miniconda
+             source /home/circleci/miniconda/etc/profile.d/conda.sh
+             conda activate base
+             # Conda configuration
+             conda config --set always_yes yes --set auto_update_conda false
+             # Update conda
+             conda update conda
+          	 conda install -c conda-forge conda-merge
+
+      - run:
+          name: Create environment
+          command: |
+	          source /home/circleci/miniconda/etc/profile.d/conda.sh
+        	  conda activate base
+            conda-merge env.common.yml env.cpu.yml > env.yml
+            conda env create -f env.yml
+            conda activate ocp-models
+            pip install -e .
+            pre-commit install
+
       - save_cache:
           paths:
             - /home/circleci/miniconda
-          key: deps
+          key: v0-dependencies-{{ checksum "env.common.yml" }}-{{ checksum "env.cpu.yml" }}-{{ checksum "env.gpu.yml" }}
+
       - run:
-          name: Install
+          name: Run tests
           command: |
-            #$HOME/miniconda/bin/conda init --all
-            #$HOME/miniconda/bin/conda activate ocp-models
-            $HOME/miniconda/envs/ocp-models/bin/pip install -e .
+            source /home/circleci/miniconda/etc/profile.d/conda.sh
+            conda activate ocp-models
+            pytest
+      
       - run:
-          name: Test
+          name: Run black
           command: |
-            $HOME/miniconda/envs/ocp-models/bin/pytest
+            pip install black
+            black electrocatalysis/. --diff
+            black electrocatalysis/. --check
 
 workflows:
   main:
