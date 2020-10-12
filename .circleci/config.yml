@@ -32,9 +32,6 @@ jobs:
             conda install -c conda-forge conda-merge
             conda-merge env.common.yml env.cpu.yml > env.yml
             conda env create -f env.yml
-            conda activate ocp-models
-            pip install -e .
-            pre-commit install
 
       - save_cache:
           paths:
@@ -46,12 +43,15 @@ jobs:
           command: |
             source /home/circleci/miniconda/etc/profile.d/conda.sh
             conda activate ocp-models
+            pip install -e .
+            pre-commit install
             pytest
       
       - run:
           name: Run black
           command: |
+            source /home/circleci/miniconda/etc/profile.d/conda.sh
+            conda activate ocp-models
             pip install black
             black electrocatalysis/. --diff
             black electrocatalysis/. --check
-
